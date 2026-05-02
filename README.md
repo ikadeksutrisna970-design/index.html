@@ -3,74 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XAUUSD M15 • Kadek Bloomberg Terminal</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <title>KADEK CAPITAL - BTC Auto Signal</title>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         :root {
-            --bg:#060608; --panel:#0c0c10; --b1:#181820; --orange:#ff6600;
-            --green:#00d97e; --red:#ff2d55; --cyan:#00c8ff; --amber:#ffb700;
+            --bg:#060608; --panel:#0c0c10; --orange:#ff6600; --green:#00d97e; --red:#ff2d55;
         }
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { background:var(--bg); color:#c0c8d8; font-family:'Inter',sans-serif; min-height:100vh; }
-        .wrap { max-width:720px; margin:0 auto; padding:10px 12px; }
-        h1 { text-align:center; color:var(--orange); font-family:'Bebas Neue',sans-serif; letter-spacing:3px; margin:15px 0; }
-        .price-hero { background:var(--panel); border:1px solid var(--b1); border-left:4px solid var(--orange); padding:15px; margin:10px 0; display:flex; justify-content:space-between; }
-        .pbig { font-family:'Bebas Neue',sans-serif; font-size:54px; line-height:1; }
-        .pbig.up { color:var(--green); } .pbig.dn { color:var(--red); }
-        #chartEl { width:100%; height:340px; background:var(--panel); margin:15px 0; border:1px solid var(--b1); }
-        button {
-            width:100%; padding:16px; margin:10px 0; font-family:'Bebas Neue',sans-serif;
-            font-size:21px; letter-spacing:2px; cursor:pointer; border:none;
-        }
-        .scan-btn { background:linear-gradient(135deg,#ff6600,#ff8800); color:black; }
-        .status { padding:12px; text-align:center; font-family:'Share Tech Mono',monospace; background:rgba(255,183,0,0.15); margin:10px 0; border-radius:4px; }
+        body { background:var(--bg); color:#c0c8d8; font-family:'Inter',sans-serif; margin:0; padding:0; }
+        .wrap { max-width:720px; margin:0 auto; padding:10px; }
+        h1 { text-align:center; color:var(--orange); font-family:'Bebas Neue',sans-serif; font-size:28px; margin:15px 0; }
+        #price { font-size:52px; font-family:'Bebas Neue',sans-serif; text-align:center; }
+        #chartEl { height:380px; margin:15px 0; background:var(--panel); }
+        button { width:100%; padding:16px; margin:10px 0; font-size:18px; font-weight:bold; border:none; cursor:pointer; }
+        .status { padding:12px; text-align:center; background:rgba(255,183,0,0.15); margin:10px 0; border-radius:6px; }
     </style>
 </head>
 <body>
 
 <div class="wrap">
-    <h1>KADEK BLOOMBERG TERMINAL</h1>
+    <h1>KADEK CAPITAL</h1>
+    <div style="text-align:center; font-size:18px; color:#ff8800;">BTCUSDT • M15 • AUTO SIGNAL</div>
     
-    <div class="status" id="status">Menunggu data XAUUSD...</div>
-
-    <div class="price-hero">
-        <div>
-            <div style="font-size:13px; color:#888;">XAUUSD • M15 • BYBIT</div>
-            <div class="pbig" id="price">——</div>
-            <div id="change" style="font-size:14px;"></div>
-        </div>
-    </div>
-
+    <div class="status" id="status">Menunggu analisa...</div>
+    <div id="price" style="color:#00d97e;">——</div>
     <div id="chartEl"></div>
 
-    <button class="scan-btn" onclick="fetchData()">⚡ SCAN & ANALISA SEKARANG</button>
-    <button onclick="toggleAuto()" id="autoBtn">🤖 AUTO MODE : OFF</button>
+    <button onclick="toggleAuto()" id="autoBtn" style="background:#00d97e; color:black;">🤖 AUTO SCAN + KIRIM TELEGRAM : OFF</button>
 </div>
 
 <script>
 let chart, candleSeries;
 let autoInterval = null;
 let isAuto = false;
+let lastSignal = null;
 
-function initChart() {
-    const el = document.getElementById('chartEl');
-    chart = LightweightCharts.createChart(el, {
-        width: el.clientWidth,
-        height: 340,
-        layout: { background: { color: '#0c0c10' }, textColor: '#ccc' },
-        grid: { vertLines: { color: '#1f2335' }, horzLines: { color: '#1f2335' } },
-    });
-    candleSeries = chart.addCandlestickSeries();
-}
+// Telegram Config (isi dengan milikmu)
+const BOT_TOKEN = "8596503581:AAHyxjtTkaeutnvy62VlOPTfOr2EmN5tMBg"; // ganti kalau beda
+const CHAT_ID = "5132441992"; // ganti dengan chat id kamu
 
 async function fetchData() {
-    const status = document.getElementById('status');
-    status.textContent = "🔄 Mengambil data...";
-
     try {
-        const res = await fetch("https://api.bybit.com/v5/market/kline?category=linear&symbol=XAUUSDT&interval=15&limit=200");
+        const res = await fetch("https://api.bybit.com/v5/market/kline?category=linear&symbol=BTCUSDT&interval=15&limit=100");
         const json = await res.json();
         const raw = json.result.list.reverse();
 
@@ -80,15 +54,39 @@ async function fetchData() {
         }));
 
         candleSeries.setData(candles);
-        chart.timeScale().fitContent();
-
         const last = candles[candles.length-1];
         document.getElementById('price').textContent = last.close.toFixed(2);
-        document.getElementById('price').className = 'pbig ' + (last.close >= candles[candles.length-2].close ? 'up' : 'dn');
 
-        status.textContent = `✅ Berhasil update • ${new Date().toLocaleTimeString('id-ID')}`;
+        // Simple Signal Logic
+        const prev = candles[candles.length-2];
+        if (last.close > prev.close * 1.001) {
+            sendSignal("BUY", last.close);
+        } else if (last.close < prev.close * 0.999) {
+            sendSignal("SELL", last.close);
+        }
     } catch(e) {
-        status.textContent = "❌ Gagal mengambil data";
+        console.error(e);
+    }
+}
+
+async function sendSignal(type, price) {
+    if (lastSignal === type) return;
+    lastSignal = type;
+
+    const tp = type === "BUY" ? (price * 1.015).toFixed(2) : (price * 0.985).toFixed(2);
+    const sl = type === "BUY" ? (price * 0.99).toFixed(2) : (price * 1.01).toFixed(2);
+
+    const message = `${type} BTCUSDT\nPrice: ${price}\nTP: ${tp}\nSL: ${sl}\nTime: ${new Date().toLocaleTimeString('id-ID')}`;
+
+    try {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({chat_id: CHAT_ID, text: message})
+        });
+        document.getElementById('status').innerHTML = `✅ ${type} SIGNAL dikirim ke Telegram`;
+    } catch(e) {
+        console.error("Gagal kirim Telegram");
     }
 }
 
@@ -96,20 +94,21 @@ function toggleAuto() {
     isAuto = !isAuto;
     const btn = document.getElementById('autoBtn');
     if (isAuto) {
-        btn.textContent = "🤖 AUTO MODE : ON";
-        btn.style.background = "#00d97e";
-        btn.style.color = "black";
-        autoInterval = setInterval(fetchData, 45000);
+        btn.textContent = "🤖 AUTO MODE : ON (Scanning...)";
+        btn.style.background = "#ff6600";
+        autoInterval = setInterval(fetchData, 30000); // setiap 30 detik
         fetchData();
     } else {
         btn.textContent = "🤖 AUTO MODE : OFF";
-        btn.style.background = "";
+        btn.style.background = "#00d97e";
         clearInterval(autoInterval);
     }
 }
 
 window.onload = () => {
-    initChart();
+    const el = document.getElementById('chartEl');
+    chart = LightweightCharts.createChart(el, { width: el.clientWidth, height: 380 });
+    candleSeries = chart.addCandlestickSeries();
     fetchData();
 };
 </script>
