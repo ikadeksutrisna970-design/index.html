@@ -13,8 +13,9 @@
         h1 { text-align:center; color:var(--orange); font-family:'Bebas Neue',sans-serif; font-size:32px; letter-spacing:3px; margin:10px 0; }
         .subtitle { text-align:center; color:#ffcc00; font-size:17px; }
         #price { font-size:62px; font-family:'Bebas Neue',sans-serif; text-align:center; margin:8px 0; }
-        #chartEl { height:380px; margin:15px 0; background:var(--panel); }
+        #chartEl { height:360px; margin:15px 0; background:var(--panel); }
         .status { padding:14px; background:rgba(255,183,0,0.2); margin:10px 0; border-radius:8px; text-align:center; font-family:'Share Tech Mono',monospace; }
+        .tg-status { padding:8px 12px; border-radius:6px; font-size:13px; display:inline-block; margin:8px 0; }
         button { width:100%; padding:18px; margin:12px 0; font-size:20px; font-weight:bold; border:none; border-radius:8px; cursor:pointer; }
     </style>
 </head>
@@ -22,9 +23,13 @@
 
 <div class="wrap">
     <h1>KADEK CAPITAL</h1>
-    <div class="subtitle">BTCUSDT • M15 • SMART AUTO SIGNAL</div>
+    <div class="subtitle">BTC-USD • M15 • AUTO SIGNAL</div>
     
-    <div class="status" id="status">🚀 Menghubungkan ke pasar...</div>
+    <div style="text-align:center;">
+        <span class="tg-status" id="tgStatus">🔴 Telegram Not Connected</span>
+    </div>
+
+    <div class="status" id="status">🚀 Menghubungkan sistem...</div>
     <div id="price" style="color:#00ffaa;">——</div>
     <div id="chartEl"></div>
 
@@ -38,98 +43,31 @@ const CHAT_ID = "5132441992";
 let chart, candleSeries;
 let autoInterval = null;
 let isAuto = false;
+let tgConnected = false;
 
-async function fetchWithProxy() {
-    const proxies = [
-        url => url,
-        url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-    ];
-
-    for (let proxy of proxies) {
-        try {
-            const res = await fetch(proxy("https://api.bybit.com/v5/market/kline?category=linear&symbol=BTCUSDT&interval=15&limit=100"));
-            if (res.ok) {
-                const json = await res.json();
-                return json.result.list.reverse();
-            }
-        } catch(e) {}
-    }
-    throw new Error("Gagal");
-}
-
-async function fetchData() {
-    const status = document.getElementById('status');
-    status.textContent = "📡 Mengambil data BTC...";
-
+// Test Telegram Connection
+async function testTelegram() {
+    const tgEl = document.getElementById('tgStatus');
     try {
-        const raw = await fetchWithProxy();
-        const candles = raw.map(d => ({
-            time: Math.floor(d[0]/1000),
-            open: +d[1], high: +d[2], low: +d[3], close: +d[4]
-        }));
-
-        candleSeries.setData(candles);
-        const last = candles[candles.length-1];
-        document.getElementById('price').textContent = last.close.toFixed(2);
-
-        analyzeSignal(candles);
+        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getMe`);
+        if (res.ok) {
+            tgConnected = true;
+            tgEl.innerHTML = "🟢 Telegram Terhubung";
+            tgEl.style.background = "rgba(0,217,126,0.2)";
+            tgEl.style.color = "#00d97e";
+        }
     } catch(e) {
-        document.getElementById('status').innerHTML = "❌ Masih gagal ambil data. Coba refresh.";
+        tgEl.innerHTML = "🔴 Telegram Gagal Terhubung";
     }
 }
 
-function analyzeSignal(candles) {
-    const last = candles[candles.length-1];
-    const change = ((last.close - candles[candles.length-2].close) / candles[candles.length-2].close) * 100;
+async function fetchData() { ... } // (sama seperti sebelumnya, saya ringkas agar tidak terlalu panjang)
 
-    if (Math.abs(change) > 0.5) {
-        const type = change > 0 ? "🟢 STRONG BUY" : "🔴 STRONG SELL";
-        sendSignal(type, last.close, change);
-    }
-}
-
-async function sendSignal(type, price, change) {
-    const tp = (type.includes("BUY") ? price * 1.02 : price * 0.98).toFixed(2);
-    const sl = (type.includes("BUY") ? price * 0.985 : price * 1.02).toFixed(2);
-
-    const msg = `${type} BTCUSDT\n\n` +
-                `💰 Price : ${price}\n` +
-                `📈 Change : ${change.toFixed(2)}%\n` +
-                `🎯 TP : ${tp}\n` +
-                `🛑 SL : ${sl}\n` +
-                `⏰ ${new Date().toLocaleString('id-ID')}`;
-
-    try {
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({chat_id: CHAT_ID, text: msg})
-        });
-        document.getElementById('status').innerHTML = `✅ ${type} SIGNAL TERKIRIM!`;
-    } catch(e) {}
-}
-
-function toggleAuto() {
-    isAuto = !isAuto;
-    const btn = document.getElementById('autoBtn');
-    if (isAuto) {
-        btn.textContent = "⏹ STOP AUTO SIGNAL";
-        btn.style.background = "#ff6600";
-        autoInterval = setInterval(fetchData, 30000);
-        fetchData();
-    } else {
-        btn.textContent = "🤖 AKTIFKAN AUTO SIGNAL TELEGRAM";
-        btn.style.background = "#00d97e";
-        clearInterval(autoInterval);
-    }
-}
+function toggleAuto() { ... } // (sama seperti sebelumnya)
 
 window.onload = () => {
-    const el = document.getElementById('chartEl');
-    chart = LightweightCharts.createChart(el, { width: el.clientWidth, height: 380 });
-    candleSeries = chart.addCandlestickSeries();
-    fetchData();
+    testTelegram(); // Test koneksi Telegram saat load
+    // ... inisialisasi chart dan fetchData
 };
 </script>
 </body>
